@@ -4,6 +4,8 @@
                  The parent ptocess creates a child process and communicates a structure using pipes.
                  The child receives the data, modifies it and sends the data back to the parent process.
 
+    To Build:    gcc -o ipc_pipe ipc_pipe.c
+
     Written for ECEN 5013 at University of Colorado Boulder in Spring 2018.
 */
 
@@ -56,8 +58,6 @@ int main(void)
       if(close(parent_to_child[1]) == -1)      //close parent_to_child write
         errExit("close parent_to_child write");
       printf("## CHILD ## Handled pipe descriptors.\n");
-      // printf("## CHILD ## Entering sleep for 1 second.\n");
-      // sleep(1);
 
       if(read(parent_to_child[0], &data, sizeof(payload_t)) == -1)
         errExit("read parent_to_child");

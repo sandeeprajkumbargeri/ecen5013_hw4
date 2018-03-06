@@ -4,6 +4,8 @@
                  The parent ptocess creates a child process and communicates a structure using UNIX based sockets.
                  The child receives the data, modifies it and sends the data back to the parent process.
 
+    To Build:    gcc -o ipc_sockeet ipc_socket.c
+
     Written for ECEN 5013 at University of Colorado Boulder in Spring 2018.
 */
 
@@ -118,7 +120,7 @@ int main(void)
       data.led_state = false;
 
       printf("## PARENT ## Sleeping for 1 second to make sure child has successfully set up its socket.\n");
-      sleep(1);
+      usleep(500);
 
       printf("## PARENT ## Sending string: \"%s\". LED State: %s.\n", data.string, data.led_state ? "true" : "false");
 
