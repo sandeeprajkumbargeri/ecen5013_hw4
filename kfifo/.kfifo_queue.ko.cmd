@@ -1,0 +1,1 @@
+cmd_/home/sandeep/Music/hw4/kfifo/kfifo_queue.ko := ld -r -m elf_x86_64 -T ./scripts/module-common.lds --build-id  -o /home/sandeep/Music/hw4/kfifo/kfifo_queue.ko /home/sandeep/Music/hw4/kfifo/kfifo_queue.o /home/sandeep/Music/hw4/kfifo/kfifo_queue.mod.o ;  true
