@@ -1,17 +1,17 @@
 /*  Author: Sandeep Raj Kumbargeri <sandeep.kumbargeri@colorado.edu>
     Date: 6-March-2018
-    Description: The kernel module takes the current process's  PID to investigate
-                 the process tree lineage. This module should print information
-                 about the parent processes as it traverses backwards up the process
-                 tree until it cannot go any further. For each process it goes through,
-                 it should print the following metrics on that process in dmesg:
-                 ○ Thread Name            ○ Process ID        ○ Process Status
-                 ○ Number of children     ○ Nice Value        ○ Priority
+    Description: This kernel module uses the kthread API to create a kernel module
+                 with a second thread that allows the two to communicate via queues
+                 (kfifo). The first thread should send information to the second thread
+                 on a timed interval through the fifo. The second thread should take
+                 data from the kfifo and print it to the kernel logger. The info you
+                 should pass should relate to the currently scheduled processes in the
+                 rbtree. What was the ID and vruntime of the previous, current, and next PID.
 
     To Build:    sudo make
-    To Run:      sudo insmod ./klineage.ko
+    To Run:      sudo insmod ./kfifo_queue.ko
     Output using:dmesg
-    Remove:      sudo rmmod klineage
+    Remove:      sudo rmmod kfifo_queue
 
     Written for ECEN 5013 at University of Colorado Boulder in Spring 2018.
 */
@@ -71,10 +71,11 @@ static int __init init_kfifo_queue(void)
 {
   printk(KERN_INFO "## KFIFO INIT ## Starting kfifo_queue module.\n");
 
+  //Setting up timer for regular execution of a thread
   init_timer(&timer);
   setup_timer(&timer, timer_callback_handler, 0);
   mod_timer(&timer, jiffies + msecs_to_jiffies(INTERVAL_MS));
-  sema_init(&sem, 0);
+  sema_init(&sem, 0);       //to synchnorize the working of the worker thread
 
   worker = kthread_create(worker_thread, NULL, "worker thread");
   wake_up_process(worker);
@@ -82,7 +83,7 @@ static int __init init_kfifo_queue(void)
   return 0;
 }
 
-//Kernel timer interrupt handler
+//Kernel timer interrupt handler - whenever the timer expires, post the semaphore
 void timer_callback_handler(unsigned long data)
 {
   mod_timer(&timer, jiffies + msecs_to_jiffies(INTERVAL_MS));
@@ -96,29 +97,35 @@ int worker_thread(void *data)
   struct task_struct *next_task;
   struct payload previous_task_msg, current_task_msg, next_task_msg;
 
-  INIT_KFIFO(kfifo);
+  INIT_KFIFO(kfifo);          //Initializing the KFIFO
 
   while(1)
   {
-    down(&sem);
+    down(&sem);       //ececute the following code when the semaphore is obrained
 
     previous_task = list_entry(current_task->tasks.prev, struct task_struct, tasks);
+
+    //next task will only make sense if another process is called after inserting this kernel module
     next_task = list_entry(current_task->tasks.next, struct task_struct, tasks);
 
     previous_task_msg.pid = previous_task->pid;
     previous_task_msg.vruntime = previous_task->se.vruntime;
+    //printk(KERN_INFO "## WORKER ## PREVIOUS TASK PID: %d | VRUNTIME: %llu ##\n", previous_task_msg.pid, previous_task_msg.vruntime);
 
     current_task_msg.pid = current_task->pid;
     current_task_msg.vruntime = current_task->se.vruntime;
+    //printk(KERN_INFO "## WORKER ## CURRENT TASK PID: %d | VRUNTIME: %llu ##\n", current_task_msg.pid, current_task_msg.vruntime);
 
     next_task_msg.pid = next_task->pid;
     next_task_msg.vruntime = next_task->se.vruntime;
+    //printk(KERN_INFO "## WORKER ## NEXT TASK PID: %d | VRUNTIME: %llu ##\n", next_task_msg.pid, next_task_msg.vruntime);
 
+    //Piping the data unit by unit through the FIFO
     kfifo_put(&kfifo, previous_task_msg);
     kfifo_put(&kfifo, current_task_msg);
     kfifo_put(&kfifo, next_task_msg);
 
-    logger = kthread_create(logger_thread, NULL, "logger thread");
+    logger = kthread_create(logger_thread, NULL, "logger thread");  //creating the logger thread
     wake_up_process(logger);
   }
   return 0;
@@ -144,6 +151,7 @@ int logger_thread(void *data)
 
 static void __exit exit_kfifo_queue(void)
 {
+  //clean up by removing the kernel timer and stopping the worker thread
    del_timer(&timer);
    kthread_stop(worker);
    printk(KERN_INFO "## KFIFO EXIT ## Exiting kfifo_queue module.\n");
