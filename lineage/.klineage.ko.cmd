@@ -1,0 +1,1 @@
+cmd_/home/sandeep/Music/hw4/lineage/klineage.ko := ld -r -m elf_x86_64 -T ./scripts/module-common.lds --build-id  -o /home/sandeep/Music/hw4/lineage/klineage.ko /home/sandeep/Music/hw4/lineage/klineage.o /home/sandeep/Music/hw4/lineage/klineage.mod.o ;  true
